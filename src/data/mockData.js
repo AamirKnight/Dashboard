@@ -1,19 +1,9 @@
-export const summaryStats = {
-  onTrack: 8,
-  atRisk: 5,
-  critical: 3,
-  total: 16
-};
-
-
-
-export const pipelineSteps = [
-  { id: 1, title: "Data Ingestion", desc: "All data sources synced" },
-  { id: 2, title: "Rules Engine", desc: "Checking all fields" },
-  { id: 3, title: "AI Analysis", desc: "AI analysis complete" },
-  { id: 4, title: "Alert Dispatch", desc: "Alerts dispatched" }
+export const summaryStats = [
+  { id: 'priority', title: 'Priority Alerts', value: 4, icon: 'AlertTriangle', color: 'text-red-500', bg: 'bg-red-50' },
+  { id: 'network', title: 'Network Issues', value: 2, icon: 'Activity', color: 'text-orange-500', bg: 'bg-orange-50' },
+  { id: 'worsening', title: 'Worsening Trends', value: 5, icon: 'TrendingDown', color: 'text-yellow-600', bg: 'bg-yellow-50' },
+  { id: 'improving', title: 'Improving', value: 3, icon: 'TrendingUp', color: 'text-emerald-500', bg: 'bg-emerald-50' },
 ];
-
 
 export const allAlerts = [
   { id: 1, title: "Consecutive SLA Compliance Decline", desc: "Package shows 3 consecutive weeks of declining SLA compliance.", severity: "Critical", type: "AI", time: "2h ago" },
