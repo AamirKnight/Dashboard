@@ -1,40 +1,33 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Filter, Brain, Settings } from 'lucide-react';
+import { Search, Filter } from 'lucide-react';
 import clsx from 'clsx';
 import { allAlerts } from '../data/mockData';
+import { SeverityBadge, TypeBadge, SourceBadge } from '../components/ui/Badges';
+import AlertDrawer from '../components/alerts/AlertDrawer';
 
 export default function Alerts() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [severityFilter, setSeverityFilter] = useState('All');
-  const [typeFilter, setTypeFilter] = useState('All');
+  const [search, setSearch]           = useState('');
+  const [severityF, setSeverityF]     = useState('All');
+  const [typeF, setTypeF]             = useState('All');
+  const [activeAlert, setActiveAlert] = useState(null);
 
-  // Filter Logic
-  const filteredAlerts = allAlerts.filter(alert => {
-    const matchesSearch = alert.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          alert.desc.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesSeverity = severityFilter === 'All' || alert.severity === severityFilter;
-    const matchesType = typeFilter === 'All' || alert.type === typeFilter;
-    return matchesSearch && matchesSeverity && matchesType;
+  const filtered = allAlerts.filter(a => {
+    const q = search.toLowerCase();
+    const matchSearch   = a.title.toLowerCase().includes(q) || a.desc.toLowerCase().includes(q);
+    const matchSeverity = severityF === 'All' || a.severity === severityF;
+    const matchType     = typeF === 'All' || a.type === typeF;
+    return matchSearch && matchSeverity && matchType;
   });
 
-  const getSeverityStyles = (severity) => {
-    switch (severity) {
-      case 'Critical': return 'bg-red-100 text-red-700 border-red-200';
-      case 'High': return 'bg-orange-100 text-orange-700 border-orange-200';
-      case 'Medium': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
-      default: return 'bg-slate-100 text-slate-700';
-    }
-  };
-
-  const FilterButton = ({ active, label, onClick }) => (
+  const FilterBtn = ({ label, active, onClick }) => (
     <button
       onClick={onClick}
       className={clsx(
-        "px-4 py-2 rounded-lg text-sm font-medium transition-colors border",
-        active 
-          ? "bg-purple-50 border-purple-200 text-purple-700 dark:bg-purple-900/30 dark:border-purple-800 dark:text-purple-300" 
-          : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 dark:bg-brand-800 dark:border-slate-700 dark:text-slate-300"
+        'text-[10px] font-semibold px-3 py-1.5 rounded-lg border transition-colors',
+        active
+          ? 'bg-blue-50 border-blue-200 text-blue-700'
+          : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50',
       )}
     >
       {label}
@@ -42,107 +35,116 @@ export default function Alerts() {
   );
 
   return (
-    <div className="p-8 max-w-[1200px] mx-auto">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Alert Register</h1>
-        <div className="flex items-center gap-3 text-sm text-slate-500 mb-4">
-          <span className="font-medium bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded">27 Defined</span>
-          <span>·</span>
-          <span className="font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 px-2 py-1 rounded">
-            {allAlerts.length} Active
-          </span>
-        </div>
-        <p className="text-sm text-slate-500 max-w-2xl">
-          All alerts sourced strictly from the BharatNet ALERT Concept Note — tracking network health, FTTH utilization, and infrastructure SLAs.
-        </p>
-      </div>
+    <>
+      <AlertDrawer alert={activeAlert} onClose={() => setActiveAlert(null)} />
 
-      {/* Filters Bar */}
-      <div className="bg-white dark:bg-brand-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 mb-6 flex flex-wrap gap-4 items-center justify-between">
-        
-        {/* Search */}
-        <div className="relative flex-1 min-w-[250px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-          <input 
-            type="text" 
-            placeholder="Search alerts by title or description..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-brand-900 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
-          />
+      <div className="p-5 max-w-[1200px] mx-auto">
+
+        {/* Header */}
+        <div className="mb-4">
+          <h1 className="text-sm font-bold text-slate-800">Alert Register</h1>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-[10px] font-semibold bg-slate-100 text-slate-600 px-2 py-0.5 rounded border border-slate-200">
+              27 Defined
+            </span>
+            <span className="text-slate-300">·</span>
+            <span className="text-[10px] font-semibold bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-200">
+              {allAlerts.length} Active
+            </span>
+            <p className="text-[10px] text-slate-400 ml-2">
+              All alerts sourced from BharatNet ALERT Concept Note — tracking network health, FTTH utilization, and infrastructure SLAs.
+            </p>
+          </div>
         </div>
 
-        {/* Severity Filters */}
-        <div className="flex items-center gap-2">
-          <Filter size={16} className="text-slate-400 mr-1" />
-          <FilterButton active={severityFilter === 'All'} label="All Severity" onClick={() => setSeverityFilter('All')} />
-          <FilterButton active={severityFilter === 'Critical'} label="Critical" onClick={() => setSeverityFilter('Critical')} />
-          <FilterButton active={severityFilter === 'High'} label="High" onClick={() => setSeverityFilter('High')} />
-          <FilterButton active={severityFilter === 'Medium'} label="Medium" onClick={() => setSeverityFilter('Medium')} />
+        {/* Filters */}
+        <div className="bg-white border border-slate-200 rounded-xl p-3 mb-4 flex flex-wrap items-center gap-3">
+          {/* Search */}
+          <div className="relative flex-1 min-w-[200px]">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search alerts…"
+              className="w-full pl-8 pr-3 py-1.5 text-[11px] border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:ring-1 focus:ring-blue-400 transition"
+            />
+          </div>
+
+          {/* Severity */}
+          <div className="flex items-center gap-1.5">
+            <Filter size={11} className="text-slate-400" />
+            {['All', 'Critical', 'High', 'Medium'].map(s => (
+              <FilterBtn key={s} label={s} active={severityF === s} onClick={() => setSeverityF(s)} />
+            ))}
+          </div>
+
+          {/* Type */}
+          <div className="flex items-center gap-1.5 border-l border-slate-200 pl-3">
+            {[['All', 'All Types'], ['AI', '🧠 AI'], ['Rules', '📏 Rules']].map(([v, l]) => (
+              <FilterBtn key={v} label={l} active={typeF === v} onClick={() => setTypeF(v)} />
+            ))}
+          </div>
         </div>
 
-        {/* Type Filters */}
-        <div className="flex items-center gap-2 border-l border-slate-200 dark:border-slate-700 pl-4">
-          <FilterButton active={typeFilter === 'All'} label="All Types" onClick={() => setTypeFilter('All')} />
-          <FilterButton active={typeFilter === 'AI'} label="🧠 AI" onClick={() => setTypeFilter('AI')} />
-          <FilterButton active={typeFilter === 'Rules'} label="📏 Rules" onClick={() => setTypeFilter('Rules')} />
-        </div>
-      </div>
+        <p className="text-[10px] text-slate-400 mb-3">Showing {filtered.length} of {allAlerts.length} alerts</p>
 
-      {/* Results Count */}
-      <p className="text-sm font-medium text-slate-500 mb-4">
-        Showing {filteredAlerts.length} alerts
-      </p>
-
-      {/* Alert List */}
-      <div className="space-y-3">
-        <AnimatePresence>
-          {filteredAlerts.length === 0 ? (
-            <motion.div 
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="text-center py-12 bg-white dark:bg-brand-800 rounded-2xl border border-slate-100 dark:border-slate-700"
-            >
-              <p className="text-slate-500">No alerts found matching your filters.</p>
-            </motion.div>
-          ) : (
-            filteredAlerts.map((alert, index) => (
+        {/* Alert rows */}
+        <div className="space-y-1.5">
+          <AnimatePresence mode="popLayout">
+            {filtered.length === 0 ? (
               <motion.div
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="text-center py-12 bg-white rounded-xl border border-slate-200 text-[11px] text-slate-400"
+              >
+                No alerts match your filters.
+              </motion.div>
+            ) : filtered.map((alert, i) => (
+              <motion.button
                 key={alert.id}
                 layout
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.2, delay: index * 0.05 }}
-                className="bg-white dark:bg-brand-800 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 hover:shadow-md transition-all flex items-center justify-between gap-6 group"
+                exit={{ opacity: 0, scale: 0.98 }}
+                transition={{ duration: 0.15, delay: i * 0.025 }}
+                onClick={() => setActiveAlert(alert)}
+                className="w-full text-left bg-white border border-slate-200 hover:border-blue-200 hover:bg-blue-50/30 rounded-xl px-4 py-3 transition-all group flex items-center gap-4"
               >
-                <div className="flex-1">
-                  <h3 className="font-bold text-slate-900 dark:text-white text-base group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                {/* Severity indicator */}
+                <div className={clsx(
+                  'w-1 h-8 rounded-full flex-shrink-0',
+                  alert.severity === 'Critical' ? 'bg-red-500' :
+                  alert.severity === 'High' ? 'bg-orange-500' : 'bg-yellow-400',
+                )} />
+
+                {/* Main content */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-semibold text-slate-800 group-hover:text-blue-700 transition-colors leading-snug truncate">
                     {alert.title}
-                  </h3>
-                  <p className="text-slate-500 text-sm mt-1">{alert.desc}</p>
-                </div>
-                
-                <div className="flex items-center gap-3 w-48 justify-end">
-                  <span className={clsx("px-2.5 py-1 text-[11px] font-bold uppercase rounded-md border", getSeverityStyles(alert.severity))}>
-                    {alert.severity}
-                  </span>
-                  <span className={clsx("px-2.5 py-1 text-[11px] font-bold uppercase rounded-md border flex items-center gap-1.5 w-[75px] justify-center", 
-                    alert.type === 'AI' ? 'bg-purple-100 text-purple-700 border-purple-200' : 'bg-blue-100 text-blue-700 border-blue-200'
-                  )}>
-                    {alert.type === 'AI' ? <Brain size={12} /> : <Settings size={12} />}
-                    {alert.type}
-                  </span>
+                  </p>
+                  <p className="text-[10px] text-slate-500 mt-0.5 truncate">{alert.desc}</p>
                 </div>
 
-                <div className="w-20 text-right">
-                  <span className="text-xs font-medium text-slate-400">{alert.time}</span>
+                {/* Trigger condition */}
+                <div className="hidden lg:block w-56 flex-shrink-0">
+                  <p className="text-[9px] text-slate-400 uppercase tracking-wide mb-0.5">Trigger</p>
+                  <p className="text-[10px] text-slate-600 font-medium leading-snug">{alert.trigger}</p>
                 </div>
-              </motion.div>
-            ))
-          )}
-        </AnimatePresence>
+
+                {/* Badges */}
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <SeverityBadge severity={alert.severity} size="xs" />
+                  <TypeBadge type={alert.type} size="xs" />
+                  <SourceBadge source={alert.source} />
+                </div>
+
+                {/* Time */}
+                <span className="text-[10px] text-slate-400 w-14 text-right flex-shrink-0">{alert.time}</span>
+              </motion.button>
+            ))}
+          </AnimatePresence>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
