@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
-import { Search, Filter, Image, Video, FileText, CheckCircle2, Clock, AlertCircle, ChevronDown } from 'lucide-react';
+import { useState, useMemo, Fragment } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Search, Filter, Image, Video, FileText, CheckCircle2, Clock, AlertCircle, ChevronDown, Brain } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 
@@ -35,6 +36,7 @@ function StatCard({ label, value, sub, color = 'text-[#0F1623]', bg = 'bg-[#F5F7
 }
 
 export default function GPEquipment() {
+  const navigate = useNavigate();
   const [search, setSearch]     = useState('');
   const [district, setDistrict] = useState('All');
   const [status, setStatus]     = useState('All');
@@ -141,33 +143,85 @@ export default function GPEquipment() {
                 const cfg = STATUS_CONFIG[gp.status];
                 const Icon = cfg.icon;
                 return (
-                  <motion.tr
-                    key={gp.id}
-                    layout
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ delay: i * 0.02 }}
-                    onClick={() => setExpanded(expanded === gp.id ? null : gp.id)}
-                    className="border-b border-[#F0F3F7] last:border-0 hover:bg-[#F8FAFC] cursor-pointer transition-colors"
-                  >
-                    <td className="px-5 py-3.5">
-                      <p className="text-[14px] font-500 text-[#0F1623]">{gp.name}</p>
-                    </td>
-                    <td className="px-5 py-3.5 text-[13px] text-[#6B7280]">{gp.district}</td>
-                    <td className="px-5 py-3.5 text-[13px] text-[#6B7280]">{gp.block}</td>
-                    <td className="px-5 py-3.5">
-                      <span className={clsx('inline-flex items-center gap-1.5 text-[12px] font-500 px-2.5 py-1 rounded-lg border', cfg.color, cfg.bg, cfg.border)}>
-                        <Icon size={11} />
-                        {gp.status}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5 text-[14px] text-blue-600 font-500">{gp.images}</td>
-                    <td className="px-5 py-3.5 text-[14px] text-violet-600 font-500">{gp.videos}</td>
-                    <td className="px-5 py-3.5 text-[14px] text-emerald-600 font-500">{gp.docs}</td>
-                    <td className="px-5 py-3.5 text-[12px] text-[#6B7280]">{gp.equipment}</td>
-                    <td className="px-5 py-3.5 text-[12px] text-[#9CA3AF] whitespace-nowrap">{gp.lastUpdated}</td>
-                  </motion.tr>
+                  <Fragment key={gp.id}>
+                    <motion.tr
+                      layout
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ delay: i * 0.02 }}
+                      onClick={() => setExpanded(expanded === gp.id ? null : gp.id)}
+                      className="border-b border-[#F0F3F7] last:border-0 hover:bg-[#F8FAFC] cursor-pointer transition-colors"
+                    >
+                      <td className="px-5 py-3.5">
+                        <p className="text-[14px] font-500 text-[#0F1623]">{gp.name}</p>
+                      </td>
+                      <td className="px-5 py-3.5 text-[13px] text-[#6B7280]">{gp.district}</td>
+                      <td className="px-5 py-3.5 text-[13px] text-[#6B7280]">{gp.block}</td>
+                      <td className="px-5 py-3.5">
+                        <span className={clsx('inline-flex items-center gap-1.5 text-[12px] font-500 px-2.5 py-1 rounded-lg border', cfg.color, cfg.bg, cfg.border)}>
+                          <Icon size={11} />
+                          {gp.status}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5 text-[14px] text-blue-600 font-500">{gp.images}</td>
+                      <td className="px-5 py-3.5 text-[14px] text-violet-600 font-500">{gp.videos}</td>
+                      <td className="px-5 py-3.5 text-[14px] text-emerald-600 font-500">{gp.docs}</td>
+                      <td className="px-5 py-3.5 text-[12px] text-[#6B7280]">{gp.equipment}</td>
+                      <td className="px-5 py-3.5 text-[12px] text-[#9CA3AF] whitespace-nowrap">{gp.lastUpdated}</td>
+                    </motion.tr>
+
+                    {/* Expandable Context Section */}
+                    <AnimatePresence>
+                      {expanded === gp.id && (
+                        <tr className="bg-[#FAFBFC] border-b border-[#F0F3F7]">
+                          <td colSpan={9} className="p-0">
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              exit={{ opacity: 0, height: 0 }}
+                              className="overflow-hidden"
+                            >
+                              <div className="p-5 flex items-center justify-between shadow-inner">
+                                <div>
+                                  <p className="text-[13px] font-semibold text-[#0F1623] mb-1">Equipment Details</p>
+                                  <p className="text-[12px] text-[#4B5563]">
+                                    Required: {gp.equipment} | Location: {gp.block}, {gp.district} | Media Logged: {gp.images} Images, {gp.videos} Videos.
+                                  </p>
+                                </div>
+                                {gp.status === 'Overdue' && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigate('/ai-query', {
+                                        state: {
+                                          contextData: {
+                                            id: gp.id,
+                                            type: 'Equipment',
+                                            title: `${gp.name} Installation Overdue`,
+                                            desc: `Block: ${gp.block}, District: ${gp.district} | Needed: ${gp.equipment}`,
+                                            severity: 'High',
+                                            name: gp.name,
+                                            equipment: gp.equipment,
+                                            district: gp.district
+                                          },
+                                          initialQuery: `Here is the data for ${gp.name}. Please help me resolve the overdue status.`
+                                        }
+                                      });
+                                    }}
+                                    className="flex items-center gap-2 px-4 py-2 bg-violet-600 text-white text-[12px] font-semibold rounded-xl hover:bg-violet-700 transition-colors shadow-sm"
+                                  >
+                                    <Brain size={14} />
+                                    Ask AI About This
+                                  </button>
+                                )}
+                              </div>
+                            </motion.div>
+                          </td>
+                        </tr>
+                      )}
+                    </AnimatePresence>
+                  </Fragment>
                 );
               })}
             </AnimatePresence>

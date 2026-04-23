@@ -6,47 +6,10 @@ import { allAlerts } from '../data/mockData';
 import { SeverityBadge, TypeBadge } from '../components/ui/Badges';
 
 const MOCK_RESPONSES = {
-  'Why is this SLA dropping?': `Based on the pattern data, SLA compliance has been declining for 3 consecutive weeks. The primary root causes identified are:
-
-1. **Power instability** at 4 exchange points in the Eastern zone — 2 sites have reported electricity unavailability via the Samridh Gram app.
-2. **Increased fault frequency** — incident count jumped from 8 to 22 in the last 7 days, 2.75× above baseline.
-3. **Rack cooling failure** at Kahalgaon block is causing thermal throttling on OLT equipment, directly impacting uptime.
-
-Recommended action: Deploy field team to Kahalgaon and Pirpainti nodes within 24 hours.`,
-
-  'Show root cause of outage': `Root cause analysis for the detected outage pattern:
-
-**Primary cause**: OLT hardware fault at Naugachhia Exchange (offline for 6+ hours)
-**Contributing factors**:
-- No UPS backup — site lost power during grid failure on Monday evening
-- No maintenance visit in 21 days (overdue by 14 days per SLA)
-- Force majeure not filed despite reported infrastructure damage
-
-**Impact**: 847 subscribers affected, SLA breach of 4.2 hours so far.
-**Resolution ETA**: 6–8 hours pending field team arrival and OLT replacement.`,
-
-  'Which towers are affected?': `Towers currently showing anomalies:
-
-| Tower ID | Location      | Issue              | Severity |
-|----------|---------------|--------------------|----------|
-| TW-2241  | Kahalgaon     | Power outage       | Critical |
-| TW-1893  | Naugachhia    | OLT fault          | Critical |
-| TW-2087  | Sultanganj    | Traffic spike 3.2× | High     |
-| TW-1654  | Bausi         | No update 21d      | High     |
-| TW-2310  | Pirpainti     | AC failure         | Medium   |
-
-Total affected subscribers across these towers: **~2,400**`,
-
-  'default': `I've analyzed the available data for this alert. Based on patterns across UNMS, NOC, and field reports:
-
-- The alert was first detected **2 hours ago** with a confidence score of 94%
-- **3 similar events** occurred in the past 30 days — all resolved within 12 hours
-- Current risk trajectory suggests escalation to Critical within **48 hours** if unresolved
-
-Suggested next steps:
-1. Dispatch field team to the affected GP node
-2. Check power and cooling status via Samridh Gram app
-3. Raise priority ticket in Issue Management System`,
+  'Why is this SLA dropping?': `Based on the pattern data, SLA compliance has been declining for 3 consecutive weeks. The primary root causes identified are:\n\n1. **Power instability** at 4 exchange points in the Eastern zone.\n2. **Increased fault frequency** — incident count jumped from 8 to 22 in the last 7 days.\n3. **Rack cooling failure** at Kahalgaon block.\n\nRecommended action: Deploy field team to Kahalgaon and Pirpainti nodes within 24 hours.`,
+  'Show root cause of outage': `Root cause analysis for the detected outage pattern:\n\n**Primary cause**: OLT hardware fault at Naugachhia Exchange (offline for 6+ hours)\n**Contributing factors**:\n- No UPS backup — site lost power during grid failure\n- No maintenance visit in 21 days\n\n**Impact**: 847 subscribers affected.\n**Resolution ETA**: 6–8 hours pending field team arrival.`,
+  'Which towers are affected?': `Towers currently showing anomalies:\n\n| Tower ID | Location | Issue | Severity |\n|---|---|---|---|\n| TW-2241 | Kahalgaon | Power outage | Critical |\n| TW-1893 | Naugachhia | OLT fault | Critical |\n| TW-2087 | Sultanganj | Traffic spike | High |\n\nTotal affected subscribers: **~2,400**`,
+  'default': `I've analyzed the available data for this query. Based on the patterns:\n\n- The issue has been flagged with a high confidence score.\n- Similar events in this sector usually take 24-48 hours to resolve.\n\nSuggested next steps:\n1. Dispatch the field team to the node.\n2. Verify hardware requirements.\n3. Update the ticket status in the IMS.`,
 };
 
 function TypingIndicator() {
@@ -99,18 +62,33 @@ const SUGGESTED = [
 ];
 
 export default function AIQuery() {
-  const location  = useLocation();
-  const alertId   = location.state?.alertId;
-  const alert     = allAlerts.find(a => a.id === alertId) ?? null;
+  const location = useLocation();
+  const alertId = location.state?.alertId;
+  const contextData = location.state?.contextData;
+  const initialQuery = location.state?.initialQuery;
 
-  const [messages, setMessages]   = useState([]);
-  const [input, setInput]         = useState('');
-  const [typing, setTyping]       = useState(false);
+  const alert = allAlerts.find(a => a.id === alertId) ?? null;
+  const displayContext = alert || contextData;
+
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState('');
+  const [typing, setTyping] = useState(false);
   const bottomRef = useRef(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, typing]);
+
+  // Handle auto-feeding the initial query and context data when the component mounts
+  useEffect(() => {
+    if (messages.length === 0 && displayContext) {
+      const query = initialQuery || `I need help analyzing the issue with ${displayContext.title}.`;
+      setMessages([
+        { role: 'user', content: query },
+        { role: 'ai', content: `I have received the data for ${displayContext.title}. What do you need to know or how can I help you resolve this?` }
+      ]);
+    }
+  }, [displayContext, initialQuery, messages.length]);
 
   const send = (text) => {
     const q = (text ?? input).trim();
@@ -118,8 +96,15 @@ export default function AIQuery() {
     setInput('');
     setMessages(m => [...m, { role: 'user', content: q }]);
     setTyping(true);
+    
     setTimeout(() => {
-      const reply = MOCK_RESPONSES[q] ?? MOCK_RESPONSES['default'];
+      let reply = MOCK_RESPONSES[q] ?? MOCK_RESPONSES['default'];
+
+      // Specific AI response generation if it detects we are analyzing overdue equipment
+      if (contextData?.type === 'Equipment') {
+         reply = `Analyzing ${contextData.name}...\n\nThe equipment (${contextData.equipment}) is currently overdue. Our logs indicate the site survey was completed, but logistics are delayed reaching ${contextData.district}.\n\nRecommendation: Expedite the vendor shipment and allocate local backup stock if available.`;
+      }
+
       setMessages(m => [...m, { role: 'ai', content: reply }]);
       setTyping(false);
     }, 1200 + Math.random() * 600);
@@ -127,7 +112,6 @@ export default function AIQuery() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden px-6 py-6 max-w-[900px] mx-auto">
-
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-4 flex-shrink-0">
         <div className="flex items-center gap-3 mb-3">
@@ -140,17 +124,17 @@ export default function AIQuery() {
           </div>
         </div>
 
-        {/* Alert context pill */}
-        {alert && (
-          <div className="flex items-center gap-3 bg-white border border-[#E8ECF0] rounded-xl px-4 py-3">
+        {/* Context pill dynamically switching between Alerts and external Context */}
+        {displayContext && (
+          <div className="flex items-center gap-3 bg-white border border-[#E8ECF0] rounded-xl px-4 py-3 shadow-sm">
             <AlertTriangle size={14} className="text-amber-500 flex-shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-500 text-[#0F1623] truncate">{alert.title}</p>
-              <p className="text-[11px] text-[#9CA3AF] truncate">{alert.desc}</p>
+              <p className="text-[13px] font-500 text-[#0F1623] truncate">{displayContext.title}</p>
+              <p className="text-[11px] text-[#9CA3AF] truncate">{displayContext.desc}</p>
             </div>
             <div className="flex gap-1.5 flex-shrink-0">
-              <SeverityBadge severity={alert.severity} size="xs" />
-              <TypeBadge type={alert.type} size="xs" />
+              <SeverityBadge severity={displayContext.severity || 'Medium'} size="xs" />
+              <TypeBadge type={displayContext.type || 'AI'} size="xs" />
             </div>
           </div>
         )}
@@ -165,7 +149,7 @@ export default function AIQuery() {
             </div>
             <p className="text-[16px] font-500 text-[#0F1623] mb-1">How can I help you?</p>
             <p className="text-[13px] text-[#9CA3AF] mb-6 max-w-xs">
-              Ask anything about this alert, or choose a suggested question below.
+              Ask anything about this issue, or choose a suggested question below.
             </p>
             <div className="flex flex-wrap justify-center gap-2">
               {SUGGESTED.map(s => (
@@ -220,7 +204,7 @@ export default function AIQuery() {
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && send()}
-          placeholder="Ask about this alert…"
+          placeholder="Ask about this context…"
           className="flex-1 px-4 py-3 text-[14px] border border-[#E8ECF0] rounded-xl bg-white text-[#0F1623] focus:outline-none focus:ring-2 focus:ring-blue-300 transition"
         />
         <button
