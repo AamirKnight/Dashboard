@@ -1,148 +1,195 @@
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Filter } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { AlertTriangle, Brain, Filter, Search } from 'lucide-react';
 import clsx from 'clsx';
-import { allAlerts } from '../data/mockData';
-import { SeverityBadge, TypeBadge, SourceBadge } from '../components/ui/Badges';
+import { alertsBySource } from '../data/mockData';
 import AlertDrawer from '../components/alerts/AlertDrawer';
+import { SeverityBadge, TypeBadge } from '../components/ui/Badges';
+
+const ALL_ALERTS = Object.entries({
+  'UNMS / NOC': 'unms',
+  'Samridh Gram App': 'samridh',
+  'Issue Management': 'issues',
+}).flatMap(([source, key]) =>
+  (alertsBySource[key] || []).map(a => ({ ...a, source }))
+);
+
+const SEV_ORDER = { Critical: 0, High: 1, Medium: 2 };
 
 export default function Alerts() {
-  const [search, setSearch]           = useState('');
-  const [severityF, setSeverityF]     = useState('All');
-  const [typeF, setTypeF]             = useState('All');
-  const [activeAlert, setActiveAlert] = useState(null);
+  const location   = useLocation();
+  const navigate   = useNavigate();
+  const [active, setActive]   = useState(null);
+  const [filter, setFilter]   = useState('all');
+  const [search, setSearch]   = useState('');
 
-  const filtered = allAlerts.filter(a => {
-    const q = search.toLowerCase();
-    const matchSearch   = a.title.toLowerCase().includes(q) || a.desc.toLowerCase().includes(q);
-    const matchSeverity = severityF === 'All' || a.severity === severityF;
-    const matchType     = typeF === 'All' || a.type === typeF;
-    return matchSearch && matchSeverity && matchType;
-  });
+  // Auto-open alert if navigated with state
+  useEffect(() => {
+    const id = location.state?.alertId;
+    if (id) {
+      const found = ALL_ALERTS.find(a => a.id === id);
+      if (found) setActive(found);
+    }
+  }, [location.state]);
 
-  const FilterBtn = ({ label, active, onClick }) => (
-    <button
-      onClick={onClick}
-      className={clsx(
-        'text-[10px] font-semibold px-3 py-1.5 rounded-lg border transition-colors',
-        active
-          ? 'bg-blue-50 border-blue-200 text-blue-700'
-          : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50',
-      )}
-    >
-      {label}
-    </button>
-  );
+  const filtered = ALL_ALERTS
+    .filter(a => {
+      const matchFilter =
+        filter === 'all' ||
+        (filter === 'Critical' && a.severity === 'Critical') ||
+        a.type === filter;
+      const matchSearch =
+        !search || a.title.toLowerCase().includes(search.toLowerCase());
+      return matchFilter && matchSearch;
+    })
+    .sort((a, b) => SEV_ORDER[a.severity] - SEV_ORDER[b.severity]);
+
+  const counts = {
+    all:      ALL_ALERTS.length,
+    Critical: ALL_ALERTS.filter(a => a.severity === 'Critical').length,
+    AI:       ALL_ALERTS.filter(a => a.type === 'AI').length,
+    Rules:    ALL_ALERTS.filter(a => a.type === 'Rules').length,
+  };
+
+  const TABS = [
+    { key: 'all',      label: 'All Alerts', count: counts.all },
+    { key: 'Critical', label: 'Critical',   count: counts.Critical },
+    { key: 'AI',       label: 'AI Alerts',  count: counts.AI },
+    { key: 'Rules',    label: 'Rules',      count: counts.Rules },
+  ];
+
+  const sevBorder = {
+    Critical: 'border-l-red-500',
+    High:     'border-l-amber-400',
+    Medium:   'border-l-blue-400',
+  };
 
   return (
     <>
-      <AlertDrawer alert={activeAlert} onClose={() => setActiveAlert(null)} />
+      <AlertDrawer
+        alert={active}
+        onClose={() => setActive(null)}
+        onAskAI={(alert) => navigate('/ai-query',  { state: { alertId: alert.id }  })}
+      />
 
-      <div className="p-5 max-w-[1200px] mx-auto">
+      {/* ── HEADER ─────────────────────────────────────────────── */}
+      <div className="mb-6">
+        <h2 className="text-[24px] font-bold text-[#0F1623] leading-none">Alert Feed</h2>
+        <p className="text-[14px] text-[#9CA3AF] mt-1">
+          Real-time risk alerts from all integrated sources
+        </p>
+      </div>
 
-        {/* Header */}
-        <div className="mb-4">
-          <h1 className="text-sm font-bold text-slate-800">Alert Register</h1>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-[10px] font-semibold bg-slate-100 text-slate-600 px-2 py-0.5 rounded border border-slate-200">
-              27 Defined
-            </span>
-            <span className="text-slate-300">·</span>
-            <span className="text-[10px] font-semibold bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-200">
-              {allAlerts.length} Active
-            </span>
-            <p className="text-[10px] text-slate-400 ml-2">
-              All alerts sourced from BharatNet ALERT Concept Note — tracking network health, FTTH utilization, and infrastructure SLAs.
-            </p>
+      {/* ── SUMMARY CARDS ─────────────────────────────────────── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        {[
+          { label: 'Total Alerts',   value: ALL_ALERTS.length,          color: 'bg-blue-50   text-blue-700' },
+          { label: 'Critical',       value: counts.Critical,            color: 'bg-red-50    text-red-600' },
+          { label: 'High Severity',  value: ALL_ALERTS.filter(a => a.severity === 'High').length, color: 'bg-amber-50  text-amber-600' },
+          { label: 'AI-Generated',   value: counts.AI,                  color: 'bg-violet-50 text-violet-600' },
+        ].map(c => (
+          <div key={c.label} className={clsx('rounded-xl p-4 flex flex-col gap-1', c.color)}>
+            <span className="text-[12px] font-semibold uppercase tracking-wide opacity-70">{c.label}</span>
+            <span className="text-[30px] font-bold leading-none">{c.value}</span>
           </div>
-        </div>
+        ))}
+      </div>
 
-        {/* Filters */}
-        <div className="bg-white border border-slate-200 rounded-xl p-3 mb-4 flex flex-wrap items-center gap-3">
-          {/* Search */}
-          <div className="relative flex-1 min-w-[200px]">
-            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+      {/* ── FILTER TABS + SEARCH ──────────────────────────────── */}
+      <div className="bg-white rounded-2xl border border-[#E4E8EE] shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#E4E8EE] gap-4 flex-wrap">
+          <div className="flex gap-1 flex-wrap">
+            {TABS.map(t => (
+              <button
+                key={t.key}
+                onClick={() => setFilter(t.key)}
+                className={clsx(
+                  'flex items-center gap-1.5 text-[12.5px] font-semibold px-3.5 py-2 rounded-lg transition-all',
+                  filter === t.key
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-[#6B7280] hover:bg-[#F5F7FA]',
+                )}
+              >
+                {t.label}
+                <span className={clsx(
+                  'text-[10px] font-bold px-1.5 py-0.5 rounded-full',
+                  filter === t.key ? 'bg-blue-500 text-white' : 'bg-[#F0F0F0] text-[#6B7280]',
+                )}>
+                  {t.count}
+                </span>
+              </button>
+            ))}
+          </div>
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
             <input
-              type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search alerts…"
-              className="w-full pl-8 pr-3 py-1.5 text-[11px] border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:ring-1 focus:ring-blue-400 transition"
+              className="pl-8 pr-4 py-2 text-[13px] border border-[#E4E8EE] rounded-lg bg-[#F9FAFB] focus:outline-none focus:ring-2 focus:ring-blue-200 w-56 placeholder-[#C0C8D4]"
             />
-          </div>
-
-          {/* Severity */}
-          <div className="flex items-center gap-1.5">
-            <Filter size={11} className="text-slate-400" />
-            {['All', 'Critical', 'High', 'Medium'].map(s => (
-              <FilterBtn key={s} label={s} active={severityF === s} onClick={() => setSeverityF(s)} />
-            ))}
-          </div>
-
-          {/* Type */}
-          <div className="flex items-center gap-1.5 border-l border-slate-200 pl-3">
-            {[['All', 'All Types'], ['AI', '🧠 AI'], ['Rules', '📏 Rules']].map(([v, l]) => (
-              <FilterBtn key={v} label={l} active={typeF === v} onClick={() => setTypeF(v)} />
-            ))}
           </div>
         </div>
 
-        <p className="text-[10px] text-slate-400 mb-3">Showing {filtered.length} of {allAlerts.length} alerts</p>
-
-        {/* Alert rows */}
-        <div className="space-y-1.5">
-          <AnimatePresence mode="popLayout">
-            {filtered.length === 0 ? (
-              <motion.div
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="text-center py-12 bg-white rounded-xl border border-slate-200 text-[11px] text-slate-400"
-              >
-                No alerts match your filters.
-              </motion.div>
-            ) : filtered.map((alert, i) => (
-              <motion.button
+        {/* ── ALERT LIST ─────────────────────────────────────── */}
+        <div className="divide-y divide-[#F0F4F8]">
+          {filtered.length === 0 ? (
+            <div className="py-16 text-center text-[#9CA3AF]">
+              <AlertTriangle size={28} className="mx-auto mb-3 opacity-30" />
+              <p className="text-[14px]">No alerts match your filter</p>
+            </div>
+          ) : (
+            filtered.map(alert => (
+              <div
                 key={alert.id}
-                layout
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.98 }}
-                transition={{ duration: 0.15, delay: i * 0.025 }}
-                onClick={() => setActiveAlert(alert)}
-                className="w-full text-left bg-white border border-slate-200 hover:border-blue-200 hover:bg-blue-50/30 rounded-xl px-4 py-3 transition-all group flex items-center gap-4"
+                className={clsx(
+                  'flex items-start gap-4 px-5 py-4 cursor-pointer border-l-4 hover:bg-[#FAFBFC] transition-colors',
+                  sevBorder[alert.severity],
+                )}
+                onClick={() => setActive(alert)}
               >
-                {/* Severity indicator */}
+                {/* Icon */}
                 <div className={clsx(
-                  'w-1 h-8 rounded-full flex-shrink-0',
-                  alert.severity === 'Critical' ? 'bg-red-500' :
-                  alert.severity === 'High' ? 'bg-orange-500' : 'bg-yellow-400',
-                )} />
+                  'w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5',
+                  alert.severity === 'Critical' ? 'bg-red-100' :
+                  alert.severity === 'High'     ? 'bg-amber-100' : 'bg-blue-100',
+                )}>
+                  <AlertTriangle size={16} className={
+                    alert.severity === 'Critical' ? 'text-red-500' :
+                    alert.severity === 'High'     ? 'text-amber-500' : 'text-blue-500'
+                  } />
+                </div>
 
-                {/* Main content */}
+                {/* Content */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-semibold text-slate-800 group-hover:text-blue-700 transition-colors leading-snug truncate">
+                  <p className="text-[14px] font-semibold text-[#0F1623] leading-snug mb-1.5">
                     {alert.title}
                   </p>
-                  <p className="text-[10px] text-slate-500 mt-0.5 truncate">{alert.desc}</p>
+                  <p className="text-[12.5px] text-[#6B7280] mb-2 line-clamp-1">
+                    {alert.desc}
+                  </p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <SeverityBadge severity={alert.severity} size="xs" />
+                    <TypeBadge type={alert.type} size="xs" />
+                    <span className="text-[11px] text-[#9CA3AF]">{alert.source}</span>
+                    <span className="ml-auto text-[11px] text-[#9CA3AF]">{alert.time}</span>
+                  </div>
                 </div>
 
-                {/* Trigger condition */}
-                <div className="hidden lg:block w-56 flex-shrink-0">
-                  <p className="text-[9px] text-slate-400 uppercase tracking-wide mb-0.5">Trigger</p>
-                  <p className="text-[10px] text-slate-600 font-medium leading-snug">{alert.trigger}</p>
-                </div>
-
-                {/* Badges */}
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <SeverityBadge severity={alert.severity} size="xs" />
-                  <TypeBadge type={alert.type} size="xs" />
-                  <SourceBadge source={alert.source} />
-                </div>
-
-                {/* Time */}
-                <span className="text-[10px] text-slate-400 w-14 text-right flex-shrink-0">{alert.time}</span>
-              </motion.button>
-            ))}
-          </AnimatePresence>
+                {/* Ask AI button */}
+                <button
+                  onClick={e => {
+                    e.stopPropagation();
+                    navigate('/ai-query',  { state: { alertId: alert.id } });
+                  }}
+                  className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-50 border border-violet-200 text-[12px] font-semibold text-violet-700 hover:bg-violet-100 transition-all"
+                >
+                  <Brain size={13} />
+                  Ask AI
+                </button>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </>
