@@ -2,9 +2,8 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Filter } from 'lucide-react';
 import clsx from 'clsx';
-import { allAlerts } from '../data/mockData';
-import { SeverityBadge, TypeBadge, SourceBadge } from '../components/ui/Badges';
-import AlertDrawer from '../components/alerts/AlertDrawer';
+import { allAlerts } from '../../data/mockData';
+import { SeverityBadge, TypeBadge, SourceBadge } from '../ui/Badges';
 
 export default function Alerts() {
   const [search, setSearch]           = useState('');
